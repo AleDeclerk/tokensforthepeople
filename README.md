@@ -35,9 +35,18 @@ See [`MATRIX.md`](MATRIX.md).
 ## Install
 
 ```bash
-# Coming soon
 brew install AleDeclerk/tap/t4p
 ```
+
+Or grab a binary from the [latest release](https://github.com/AleDeclerk/tokensforthepeople/releases/latest):
+
+```bash
+# macOS Apple Silicon
+curl -L https://github.com/AleDeclerk/tokensforthepeople/releases/latest/download/t4p_$(curl -s https://api.github.com/repos/AleDeclerk/tokensforthepeople/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/^v//')_darwin_arm64.tar.gz | tar xz
+./t4p init
+```
+
+`t4p` is a static Go binary, no runtime deps.
 
 ## License
 

@@ -1,0 +1,74 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # GoReleaser needs to create the GitHub Release
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # GoReleaser uses tags + history for the changelog
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          # GITHUB_TOKEN is for the release itself (in this repo).
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # HOMEBREW_TAP_GITHUB_TOKEN is a PAT with `repo` scope that lets
+          # GoReleaser commit the generated cask file to AleDeclerk/homebrew-tap.
+          # Create it manually under repo Settings -> Secrets and variables.
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+  smoke-test:
+    runs-on: ${{ matrix.os }}
+    needs: goreleaser
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Download t4p from the release and smoke-test it
+        env:
+          # Pulling the tag through env (not inline ${{ }} in run:) sidesteps
+          # the GitHub Actions injection foot-gun. GITHUB_REF_NAME is the
+          # built-in tag/branch name and git already restricts its charset,
+          # but the env-then-$VAR pattern is the recommended style anyway.
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ver="${TAG#v}"
+          uname_s=$(uname -s | tr '[:upper:]' '[:lower:]')
+          uname_m=$(uname -m)
+          arch="amd64"
+          if [ "$uname_m" = "arm64" ] || [ "$uname_m" = "aarch64" ]; then
+            arch="arm64"
+          fi
+          archive="t4p_${ver}_${uname_s}_${arch}.tar.gz"
+          url="https://github.com/${REPO}/releases/download/${TAG}/${archive}"
+          echo "Downloading $url"
+          curl -fsSL "$url" -o "$archive"
+          tar -xzf "$archive"
+          ./t4p version
+          ./t4p init --use-case=coding-agent --priority=quality

@@ -2,6 +2,7 @@
 /t4p
 /dist/
 *.exe
+*.exe~
 *.test
 *.out
 

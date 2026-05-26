@@ -1,0 +1,102 @@
+# GoReleaser config for tokensforthepeople (t4p).
+# Docs: https://goreleaser.com
+#
+# Triggered by `git push --tags` (any tag matching v*) via .github/workflows/release.yml.
+# Local dry-run: `goreleaser release --snapshot --clean`.
+
+version: 2
+
+project_name: t4p
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: t4p
+    main: .
+    binary: t4p
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.Version={{ .Version }}
+
+archives:
+  - id: t4p
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    formats:
+      - tar.gz
+    files:
+      - README.md
+      - LICENSE
+      - docs/wizard.md
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: Fixes
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: Other
+      order: 999
+
+homebrew_casks:
+  - name: t4p
+    # Where the Homebrew cask gets committed. You have to create this repo
+    # manually (gh repo create AleDeclerk/homebrew-tap --public) and grant the
+    # release workflow a PAT with `repo` scope as HOMEBREW_TAP_GITHUB_TOKEN.
+    repository:
+      owner: AleDeclerk
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Casks
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "Cask update for {{ .ProjectName }} v{{ .Version }}"
+    homepage: "https://github.com/AleDeclerk/tokensforthepeople"
+    description: "Free LLM tokens for the rest of us — a Go wizard that wires Cline/Continue/Aider/LiteLLM to free tiers."
+    binaries:
+      - t4p
+
+release:
+  github:
+    owner: AleDeclerk
+    name: tokensforthepeople
+  draft: false
+  prerelease: auto
+  name_template: "v{{ .Version }}"
+  header: |
+    ## t4p {{ .Version }}
+
+    `brew install AleDeclerk/tap/t4p`
+
+    Or download a binary below.
