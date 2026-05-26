@@ -283,16 +283,15 @@ then a `.t4p.bak` backup is written next to each touched file.
 
 ---
 
-## Open questions for review
+## Locked decisions (2026-05-26)
 
-1. **Use case taxonomy.** Are the 5 buckets in screen 1 right? Should
-   "embeddings" be its own bucket or folded into RAG?
-2. **Cerebras and Mistral.** Worth in the v1 matrix or v2?
-3. **Cline routing.** Cline has no native fallback, so we either (a) pick one
-   model from the chain, or (b) force the user to install LiteLLM proxy if
-   they want the full chain. Which default?
-4. **Key storage.** Plain `.env` chmod 600, or use the OS keychain
-   (`keyring` lib in Go)? Keychain is safer but breaks the "copy this file
-   to another machine" workflow.
-5. **Telemetry.** Truly zero, or anonymous opt-in count of "wizard
-   completed" so we know if anyone uses it?
+1. **Use case taxonomy.** Five buckets in screen 1. Embeddings folds into RAG.
+2. **Cerebras and Mistral.** Cerebras is in v1 (the latency edge case differentiator).
+   Mistral is out — free tier too small to be useful.
+3. **Cline routing.** Default = pick a single model from the chain matched to the
+   user's priority. `--with-proxy` flag opts into installing LiteLLM and pointing
+   Cline at `http://localhost:4000` for the full fallback chain.
+4. **Key storage.** `.env` file at `~/.config/t4p/keys.env`, chmod 600. OS keychain
+   support deferred behind a future `--use-keychain` flag.
+5. **Telemetry.** Zero phone-home. Metrics come from GitHub stars/clones, not the
+   binary.
