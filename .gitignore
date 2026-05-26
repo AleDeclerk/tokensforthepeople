@@ -1,0 +1,27 @@
+# Binaries
+/t4p
+/dist/
+*.exe
+*.test
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Secrets / local state
+.env
+.env.*
+!.env.example
+*.local.yaml
+*.local.json
+
+# Test artifacts
+coverage.out
+coverage.html
