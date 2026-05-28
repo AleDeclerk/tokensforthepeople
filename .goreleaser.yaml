@@ -14,7 +14,7 @@ before:
 
 builds:
   - id: t4p
-    main: .
+    main: ./cmd/t4p
     binary: t4p
     env:
       - CGO_ENABLED=0
@@ -69,9 +69,15 @@ changelog:
 
 homebrew_casks:
   - name: t4p
-    # Where the Homebrew cask gets committed. You have to create this repo
-    # manually (gh repo create AleDeclerk/homebrew-tap --public) and grant the
-    # release workflow a PAT with `repo` scope as HOMEBREW_TAP_GITHUB_TOKEN.
+    # Skip the upload step when the cross-repo PAT isn't set. The cask file
+    # still gets generated under dist/ for inspection, but no commit is made
+    # to the tap repo. This keeps the rest of the release (binaries + GitHub
+    # Release page) working for first-time contributors who haven't wired up
+    # the tap secret yet.
+    skip_upload: '{{ if eq (index .Env "HOMEBREW_TAP_GITHUB_TOKEN") "" }}true{{ end }}'
+    # Where the Homebrew cask gets committed. The tap repo lives at
+    # AleDeclerk/homebrew-tap. The release workflow needs a PAT with `repo`
+    # scope wired in as HOMEBREW_TAP_GITHUB_TOKEN to push there.
     repository:
       owner: AleDeclerk
       name: homebrew-tap

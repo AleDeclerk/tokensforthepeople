@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -race -cover ./...
+
+      - name: go build
+        # Confirms the binary compiles end-to-end on every commit.
+        run: go build -o /tmp/t4p ./cmd/t4p
+
+      - name: Smoke-test non-interactive init
+        # If the wizard's non-interactive path ever regresses, this catches
+        # it before any release tag is cut.
+        run: |
+          /tmp/t4p version
+          /tmp/t4p init --use-case=coding-agent --priority=quality
