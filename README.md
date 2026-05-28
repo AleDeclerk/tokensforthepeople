@@ -30,17 +30,16 @@ Done. Reopen your editor and you're on free LLMs.
 
 ## Install
 
-### Homebrew (macOS / Linux)
-
-```bash
-brew install AleDeclerk/tap/t4p
-```
-
-### `go install`
+### Recommended: `go install`
 
 ```bash
 go install github.com/AleDeclerk/tokensforthepeople/cmd/t4p@latest
 ```
+
+Requires Go 1.25 or newer. The binary lands at `$(go env GOBIN)/t4p` (or
+`$GOPATH/bin/t4p`). This is the fastest path and is gentle to macOS
+Gatekeeper — your local Go toolchain produces a binary in a user-owned
+directory, so the kernel doesn't second-guess it.
 
 ### Direct binary download
 
@@ -48,13 +47,16 @@ Grab the tarball for your platform from the
 [latest release](https://github.com/AleDeclerk/tokensforthepeople/releases/latest):
 
 ```bash
-# macOS Apple Silicon — adjust os/arch for your machine
+# macOS Apple Silicon
 VER=$(curl -s https://api.github.com/repos/AleDeclerk/tokensforthepeople/releases/latest \
         | grep '"tag_name"' | cut -d'"' -f4 | sed 's/^v//')
 curl -L "https://github.com/AleDeclerk/tokensforthepeople/releases/download/v${VER}/t4p_${VER}_darwin_arm64.tar.gz" \
   | tar xz
 ./t4p init
 ```
+
+Pick the right `os_arch` for your machine (`darwin_arm64`, `darwin_amd64`,
+`linux_amd64`, `linux_arm64`).
 
 ### From source
 
@@ -65,7 +67,16 @@ go build -o t4p ./cmd/t4p
 ./t4p init
 ```
 
-Requires Go 1.25 or newer. No CGO, no external runtime dependencies.
+### Homebrew (Linux works today; macOS pending notarization)
+
+```bash
+brew install AleDeclerk/tap/t4p
+```
+
+> ⚠️  **macOS note**: macOS Sequoia/Tahoe blocks unsigned binaries in
+> `/opt/homebrew/Cellar` at the kernel syspolicy layer even after we strip
+> the quarantine attribute. Use `go install` on macOS until v0.2 ships with
+> Apple Developer notarization. `brew install` works fine on Linux.
 
 ## What it does
 
@@ -132,6 +143,25 @@ internal/tools/         Detect installed tools (Cline/Continue/Aider/LiteLLM)
 internal/wizard/        TUI screens 1..4 + the orchestrator
 docs/wizard.md          Design spec — the source of truth for behavior
 ```
+
+## Troubleshooting
+
+### "I ran `brew install` on macOS and `t4p version` just hangs"
+
+This is the unsigned-binary Gatekeeper interaction described in the install
+section. Workaround: use `go install` instead, which puts the binary in
+your home directory where the kernel doesn't apply the same checks.
+
+### "The wizard says my Gemini key is invalid"
+
+Gemini returns HTTP 400 (not 401/403) for bad keys. We classify that as
+invalid. Double-check the key at https://aistudio.google.com/apikey — most
+keys start with `AIza`.
+
+### "I want to rerun the wizard but keep my existing keys"
+
+`t4p init` keeps any prior `~/.config/t4p/keys.env` and only adds keys you
+re-enter. Or skip the key paste screens by leaving each field blank.
 
 ## Contributing
 

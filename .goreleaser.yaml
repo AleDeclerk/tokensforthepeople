@@ -92,6 +92,11 @@ homebrew_casks:
     description: "Free LLM tokens for the rest of us — a Go wizard that wires Cline/Continue/Aider/LiteLLM to free tiers."
     binaries:
       - t4p
+    # No xattr/codesign tricks here — verified by hand that macOS Tahoe
+    # blocks unsigned binaries in /opt/homebrew/Cellar at the kernel
+    # syspolicy layer regardless of quarantine or ad-hoc signature. Real
+    # Apple notarization is the only fix; that's a v0.2 thing once we
+    # justify the $99/year cert. Linux brew users are unaffected.
 
 release:
   github:
