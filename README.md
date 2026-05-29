@@ -38,8 +38,8 @@ go install github.com/AleDeclerk/tokensforthepeople/cmd/t4p@latest
 
 Requires Go 1.25 or newer. The binary lands at `$(go env GOBIN)/t4p` (or
 `$GOPATH/bin/t4p`). This is the fastest path and is gentle to macOS
-Gatekeeper — your local Go toolchain produces a binary in a user-owned
-directory, so the kernel doesn't second-guess it.
+Gatekeeper: your local Go toolchain produces a binary in a user-owned
+directory, so the kernel does not apply the same checks.
 
 ### Direct binary download
 
@@ -82,7 +82,7 @@ brew install AleDeclerk/tap/t4p
 
 1. Asks you a handful of questions (use case, latency vs quality, privacy).
 2. Validates the API keys you paste against each provider's `GET /models`
-   endpoint — zero quota burn, ~50ms per provider.
+   endpoint (zero quota burn, ~50ms per provider).
 3. Maps your answers to an ordered fallback chain (the
    [decision matrix](./docs/wizard.md#routing-decision-matrix) is the
    opinionated part).
@@ -128,12 +128,12 @@ quotas and capabilities for each provider. See
 [`docs/wizard.md`](./docs/wizard.md#routing-decision-matrix).
 
 A scheduled health-checker that updates the matrix automatically is on the
-roadmap.
+[roadmap](./ROADMAP.md).
 
 ## Project layout
 
 ```
-cmd/t4p/                Main package — CLI dispatcher
+cmd/t4p/                Main package, CLI dispatcher
 internal/routing/       Decision matrix (use case + priority -> chain)
 internal/providers/     Static metadata per provider (endpoint, env var, ...)
 internal/validation/    GET /models live key validation
@@ -141,7 +141,7 @@ internal/keystore/      Atomic dotenv write (chmod 600 + backups)
 internal/emit/          Per-target config emitters (pure functions)
 internal/tools/         Detect installed tools (Cline/Continue/Aider/LiteLLM)
 internal/wizard/        TUI screens 1..4 + the orchestrator
-docs/wizard.md          Design spec — the source of truth for behavior
+docs/wizard.md          Design spec, the source of truth for behavior
 ```
 
 ## Troubleshooting
@@ -155,8 +155,8 @@ your home directory where the kernel doesn't apply the same checks.
 ### "The wizard says my Gemini key is invalid"
 
 Gemini returns HTTP 400 (not 401/403) for bad keys. We classify that as
-invalid. Double-check the key at https://aistudio.google.com/apikey — most
-keys start with `AIza`.
+invalid. Double-check the key at https://aistudio.google.com/apikey (most
+keys start with `AIza`).
 
 ### "I want to rerun the wizard but keep my existing keys"
 
