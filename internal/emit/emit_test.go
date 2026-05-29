@@ -122,9 +122,9 @@ func TestClineEmitter_emitsSnippetWithInstructions(t *testing.T) {
 	}
 	got := string(out)
 	for _, want := range []string{
-		"VSCode",      // instructions reference VSCode
+		"VSCode", // instructions reference VSCode
 		"settings.json",
-		"cline.",      // some cline.* setting key
+		"cline.", // some cline.* setting key
 		"gemini",
 	} {
 		if !strings.Contains(got, want) {
