@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -17,7 +18,32 @@ import (
 )
 
 // Version is overridden at build time via -ldflags "-X main.Version=...".
+// goreleaser and the Homebrew formula set it; `go install` does not, leaving
+// it at "dev" — resolveVersion falls back to the module version baked into the
+// binary's build info so `go install` users still see the real tag.
 var Version = "dev"
+
+// resolveVersion picks the most specific version available. The ldflags value
+// wins when set; otherwise it falls back to the module version from the build
+// info ("(devel)" means an unversioned local build, so it is ignored).
+func resolveVersion(ldflags, buildInfo string, haveBuildInfo bool) string {
+	if ldflags != "dev" {
+		return ldflags
+	}
+	if haveBuildInfo && buildInfo != "" && buildInfo != "(devel)" {
+		return buildInfo
+	}
+	return ldflags
+}
+
+// versionString resolves the version using the running binary's build info.
+func versionString() string {
+	buildInfo, have := "", false
+	if info, ok := debug.ReadBuildInfo(); ok {
+		buildInfo, have = info.Main.Version, true
+	}
+	return resolveVersion(Version, buildInfo, have)
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -28,7 +54,7 @@ func main() {
 	case "init":
 		os.Exit(runInit(os.Args[2:]))
 	case "version", "--version", "-v":
-		fmt.Println("t4p", Version)
+		fmt.Println("t4p", versionString())
 	default:
 		usage()
 		os.Exit(2)
