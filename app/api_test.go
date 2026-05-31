@@ -30,6 +30,48 @@ func TestListProviders_nonEmptyWithHints(t *testing.T) {
 	}
 }
 
+func TestProvidersForPlan_recommendsChainProviders(t *testing.T) {
+	a := &API{}
+	got := a.ProvidersForPlan("coding-agent", "quality")
+	if len(got) != len(a.ListProviders()) {
+		t.Fatalf("ProvidersForPlan returned %d, want all %d providers", len(got), len(a.ListProviders()))
+	}
+
+	rec := map[string]bool{}
+	for _, p := range got {
+		rec[p.ID] = p.Recommended
+	}
+	// coding/quality chain = gemini, mistral, github, nvidia, openrouter.
+	for _, id := range []string{"gemini", "mistral", "github", "nvidia", "openrouter"} {
+		if !rec[id] {
+			t.Errorf("provider %q should be Recommended for coding/quality", id)
+		}
+	}
+	// groq is not in that chain.
+	if rec["groq"] {
+		t.Error("groq should not be Recommended for coding/quality")
+	}
+
+	// Recommended providers must sort before the rest.
+	seenNonRec := false
+	for _, p := range got {
+		if !p.Recommended {
+			seenNonRec = true
+		} else if seenNonRec {
+			t.Errorf("recommended provider %q appeared after a non-recommended one", p.ID)
+		}
+	}
+}
+
+func TestProvidersForPlan_unknownPair_noneRecommended(t *testing.T) {
+	a := &API{}
+	for _, p := range a.ProvidersForPlan("nope", "nope") {
+		if p.Recommended {
+			t.Errorf("provider %q recommended for unknown pair", p.ID)
+		}
+	}
+}
+
 func TestBuildPlan_returnsChain(t *testing.T) {
 	a := &API{}
 	steps, err := a.BuildPlan("coding-agent", "quality")

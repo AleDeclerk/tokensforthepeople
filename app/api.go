@@ -46,26 +46,57 @@ func (a *API) OpenPath(path string) {
 
 // ProviderInfo is the frontend-facing shape of one provider.
 type ProviderInfo struct {
-	ID        string `json:"id"`
-	Display   string `json:"display"`
-	SignupURL string `json:"signupURL"`
-	EnvVar    string `json:"envVar"`
-	Easiest   bool   `json:"easiest"`
+	ID          string `json:"id"`
+	Display     string `json:"display"`
+	SignupURL   string `json:"signupURL"`
+	EnvVar      string `json:"envVar"`
+	Easiest     bool   `json:"easiest"`
+	Recommended bool   `json:"recommended"`
+}
+
+func toProviderInfo(p providers.Provider) ProviderInfo {
+	return ProviderInfo{
+		ID:        string(p.ID),
+		Display:   p.Display,
+		SignupURL: p.SignupURL,
+		EnvVar:    p.EnvVar,
+		Easiest:   p.ID == routing.ProviderGemini,
+	}
 }
 
 // ListProviders returns provider metadata for the key-entry screen.
 func (a *API) ListProviders() []ProviderInfo {
 	out := make([]ProviderInfo, 0, len(providers.All))
 	for _, p := range providers.All {
-		out = append(out, ProviderInfo{
-			ID:        string(p.ID),
-			Display:   p.Display,
-			SignupURL: p.SignupURL,
-			EnvVar:    p.EnvVar,
-			Easiest:   p.ID == routing.ProviderGemini,
-		})
+		out = append(out, toProviderInfo(p))
 	}
 	return out
+}
+
+// ProvidersForPlan returns every provider, ordered with the ones used by the
+// (useCase, priority) chain first and flagged Recommended. An unknown pair
+// yields all providers in canonical order with Recommended=false, so the keys
+// screen still renders the full list.
+func (a *API) ProvidersForPlan(useCase, priority string) []ProviderInfo {
+	inChain := map[routing.Provider]bool{}
+	if chain, err := routing.BuildChain(routing.UseCase(useCase), routing.Priority(priority)); err == nil {
+		for _, s := range chain {
+			inChain[s.Provider] = true
+		}
+	}
+
+	recommended := make([]ProviderInfo, 0, len(providers.All))
+	rest := make([]ProviderInfo, 0, len(providers.All))
+	for _, p := range providers.All {
+		info := toProviderInfo(p)
+		if inChain[p.ID] {
+			info.Recommended = true
+			recommended = append(recommended, info)
+		} else {
+			rest = append(rest, info)
+		}
+	}
+	return append(recommended, rest...)
 }
 
 // StepInfo is one (provider, model) entry in a plan.
