@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"time"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/AleDeclerk/tokensforthepeople/internal/emit"
 	"github.com/AleDeclerk/tokensforthepeople/internal/plan"
@@ -14,7 +17,32 @@ import (
 // API is bound to the frontend by Wails. Every exported method becomes a
 // JS-callable function. Methods are thin adapters over internal/*; errors are
 // returned as strings because the frontend only needs the message.
-type API struct{}
+type API struct {
+	ctx context.Context
+}
+
+// startup stores the Wails runtime context so OpenURL/OpenPath can call into
+// the runtime. Wired as OnStartup in main.go.
+func (a *API) startup(ctx context.Context) {
+	a.ctx = ctx
+}
+
+// OpenURL opens a provider signup page in the system browser. Powers the
+// "Get a key ↗" button.
+func (a *API) OpenURL(url string) {
+	if a.ctx != nil {
+		runtime.BrowserOpenURL(a.ctx, url)
+	}
+}
+
+// OpenPath opens a local folder in the system file manager. Powers the
+// "Open folder" button on the Done screen. Wails has no portable
+// reveal-in-finder, so we hand the directory to the default file:// handler.
+func (a *API) OpenPath(path string) {
+	if a.ctx != nil {
+		runtime.BrowserOpenURL(a.ctx, "file://"+path)
+	}
+}
 
 // ProviderInfo is the frontend-facing shape of one provider.
 type ProviderInfo struct {

@@ -12,21 +12,18 @@ import (
 var assets embed.FS
 
 func main() {
-	// Create an instance of the app structure
-	app := NewApp()
+	api := &API{}
 
-	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "app",
-		Width:  1024,
-		Height: 768,
+		Title:  "tokensforthepeople",
+		Width:  720,
+		Height: 560,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        app.startup,
+		OnStartup: api.startup,
 		Bind: []interface{}{
-			app,
+			api,
 		},
 	})
 
