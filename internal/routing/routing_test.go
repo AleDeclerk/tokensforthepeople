@@ -16,8 +16,10 @@ func TestBuildChain_codingAgent_quality(t *testing.T) {
 	}
 	wantModels := []string{
 		"gemini/gemini-2.5-flash",
+		"mistral/codestral-latest",
+		"github/openai/gpt-4.1",
+		"nvidia_nim/qwen/qwen3-coder-480b-a35b-instruct",
 		"openrouter/deepseek/deepseek-v4-flash:free",
-		"groq/llama-3.3-70b-versatile",
 	}
 	assertChain(t, chain, wantModels)
 }
@@ -32,6 +34,7 @@ func TestBuildChain_codingAgent_latency(t *testing.T) {
 	wantModels := []string{
 		"groq/llama-3.3-70b-versatile",
 		"cerebras/llama-3.3-70b",
+		"zai/glm-4.5-flash",
 		"gemini/gemini-2.5-flash",
 	}
 	assertChain(t, chain, wantModels)
@@ -57,7 +60,9 @@ func TestBuildChain_codingAgent_balanced(t *testing.T) {
 	}
 	wantModels := []string{
 		"gemini/gemini-2.5-flash",
+		"mistral/codestral-latest",
 		"groq/llama-3.3-70b-versatile",
+		"zai/glm-4.5-flash",
 		"openrouter/deepseek/deepseek-v4-flash:free",
 	}
 	assertChain(t, chain, wantModels)
@@ -70,6 +75,7 @@ func TestBuildChain_generalChat_latency(t *testing.T) {
 	}
 	wantModels := []string{
 		"groq/llama-3.1-8b-instant",
+		"nvidia_nim/meta/llama-3.1-8b-instruct",
 		"groq/llama-3.3-70b-versatile",
 		"gemini/gemini-2.5-flash",
 	}

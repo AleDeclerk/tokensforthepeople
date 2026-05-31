@@ -39,6 +39,10 @@ const (
 	ProviderOpenRouter  Provider = "openrouter"
 	ProviderOllamaCloud Provider = "ollama"
 	ProviderCerebras    Provider = "cerebras"
+	ProviderMistral     Provider = "mistral"
+	ProviderNVIDIA      Provider = "nvidia"
+	ProviderGitHub      Provider = "github"
+	ProviderZAI         Provider = "zai"
 )
 
 // Step is one entry in the fallback chain. Model uses LiteLLM's canonical
@@ -63,6 +67,7 @@ func BuildChain(uc UseCase, pr Priority) ([]Step, error) {
 	if uc == UseCaseAgentic {
 		return []Step{
 			{ProviderGemini, "gemini/gemini-2.5-flash"},
+			{ProviderGitHub, "github/openai/gpt-4.1"},
 			{ProviderGroq, "groq/llama-3.3-70b-versatile"},
 			{ProviderOpenRouter, "openrouter/deepseek/deepseek-v4-flash:free"},
 		}, nil
@@ -104,12 +109,15 @@ type matrixKey struct {
 var decisionMatrix = map[matrixKey][]Step{
 	{UseCaseCodingAgent, PriorityQuality}: {
 		{ProviderGemini, "gemini/gemini-2.5-flash"},
+		{ProviderMistral, "mistral/codestral-latest"},
+		{ProviderGitHub, "github/openai/gpt-4.1"},
+		{ProviderNVIDIA, "nvidia_nim/qwen/qwen3-coder-480b-a35b-instruct"},
 		{ProviderOpenRouter, "openrouter/deepseek/deepseek-v4-flash:free"},
-		{ProviderGroq, "groq/llama-3.3-70b-versatile"},
 	},
 	{UseCaseCodingAgent, PriorityLatency}: {
 		{ProviderGroq, "groq/llama-3.3-70b-versatile"},
 		{ProviderCerebras, "cerebras/llama-3.3-70b"},
+		{ProviderZAI, "zai/glm-4.5-flash"},
 		{ProviderGemini, "gemini/gemini-2.5-flash"},
 	},
 	{UseCaseCodingAgent, PriorityPrivacy}: {
@@ -119,22 +127,28 @@ var decisionMatrix = map[matrixKey][]Step{
 	},
 	{UseCaseCodingAgent, PriorityBalanced}: {
 		{ProviderGemini, "gemini/gemini-2.5-flash"},
+		{ProviderMistral, "mistral/codestral-latest"},
 		{ProviderGroq, "groq/llama-3.3-70b-versatile"},
+		{ProviderZAI, "zai/glm-4.5-flash"},
 		{ProviderOpenRouter, "openrouter/deepseek/deepseek-v4-flash:free"},
 	},
 	{UseCaseGeneralChat, PriorityQuality}: {
 		{ProviderGemini, "gemini/gemini-2.5-flash"},
+		{ProviderMistral, "mistral/mistral-small-latest"},
+		{ProviderGitHub, "github/openai/gpt-4.1-mini"},
 		{ProviderOpenRouter, "openrouter/meta-llama/llama-3.3-70b-instruct:free"},
 		{ProviderGroq, "groq/llama-3.3-70b-versatile"},
 	},
 	{UseCaseGeneralChat, PriorityLatency}: {
 		{ProviderGroq, "groq/llama-3.1-8b-instant"},
+		{ProviderNVIDIA, "nvidia_nim/meta/llama-3.1-8b-instruct"},
 		{ProviderGroq, "groq/llama-3.3-70b-versatile"},
 		{ProviderGemini, "gemini/gemini-2.5-flash"},
 	},
 	{UseCaseGeneralChat, PriorityBalanced}: {
 		{ProviderGemini, "gemini/gemini-2.5-flash"},
 		{ProviderGroq, "groq/llama-3.3-70b-versatile"},
+		{ProviderZAI, "zai/glm-4.5-flash"},
 		{ProviderOpenRouter, "openrouter/deepseek/deepseek-v4-flash:free"},
 	},
 	{UseCaseGeneralChat, PriorityPrivacy}: {

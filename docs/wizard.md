@@ -117,16 +117,21 @@ up to `<file>.t4p.bak` before writing.
 The wizard maps `(use_case, priority)` → ordered provider list. This is the
 opinionated knowledge that LiteLLM-by-itself doesn't give you.
 
-| Use case        | Priority    | 1st                            | 2nd                                 | 3rd                          |
-|-----------------|-------------|--------------------------------|-------------------------------------|------------------------------|
-| Coding agent    | Quality     | gemini-2.5-flash               | openrouter:deepseek-v4-flash:free   | groq:llama-3.3-70b           |
-| Coding agent    | Latency     | groq:llama-3.3-70b             | cerebras:llama-3.3-70b (if key)     | gemini-2.5-flash             |
-| Coding agent    | Privacy     | openrouter:qwen-2.5-coder:free | openrouter:deepseek-v4-flash:free   | ollama-cloud:qwen-397b       |
-| Coding agent    | Balanced    | gemini-2.5-flash               | groq:llama-3.3-70b                  | openrouter:deepseek-v4:free  |
-| General chat    | Quality     | gemini-2.5-flash               | openrouter:llama-3.3-70b:free       | groq:llama-3.3-70b           |
-| General chat    | Latency     | groq:llama-3.1-8b-instant      | groq:llama-3.3-70b                  | gemini-2.5-flash             |
-| Agentic         | (tool use)  | gemini-2.5-flash               | groq:llama-3.3-70b                  | openrouter:deepseek-v4:free  |
-| RAG             | (long ctx)  | gemini-2.5-flash               | openrouter:deepseek-v4:free         | groq:llama-3.3-70b           |
+Full ordered chains (the code in `internal/routing` is the source of truth; this
+table mirrors it). `:free` and LiteLLM `provider/model` naming kept as in code.
+
+| Use case     | Priority | Chain (in fallback order) |
+|--------------|----------|---------------------------|
+| Coding agent | Quality  | gemini-2.5-flash → mistral/codestral-latest → github/openai/gpt-4.1 → nvidia_nim/qwen/qwen3-coder-480b-a35b-instruct → openrouter/deepseek-v4-flash:free |
+| Coding agent | Latency  | groq/llama-3.3-70b → cerebras/llama-3.3-70b (if key) → zai/glm-4.5-flash → gemini-2.5-flash |
+| Coding agent | Privacy  | openrouter/qwen-2.5-coder:free → openrouter/deepseek-v4-flash:free → ollama/qwen-397b |
+| Coding agent | Balanced | gemini-2.5-flash → mistral/codestral-latest → groq/llama-3.3-70b → zai/glm-4.5-flash → openrouter/deepseek-v4-flash:free |
+| General chat | Quality  | gemini-2.5-flash → mistral/mistral-small-latest → github/openai/gpt-4.1-mini → openrouter/llama-3.3-70b:free → groq/llama-3.3-70b |
+| General chat | Latency  | groq/llama-3.1-8b-instant → nvidia_nim/meta/llama-3.1-8b-instruct → groq/llama-3.3-70b → gemini-2.5-flash |
+| General chat | Balanced | gemini-2.5-flash → groq/llama-3.3-70b → zai/glm-4.5-flash → openrouter/deepseek-v4-flash:free |
+| General chat | Privacy  | openrouter/qwen-2.5-72b:free → openrouter/deepseek-v4-flash:free → ollama/qwen-397b |
+| Agentic      | tool use | gemini-2.5-flash → github/openai/gpt-4.1 → groq/llama-3.3-70b → openrouter/deepseek-v4-flash:free |
+| RAG          | long ctx | gemini-2.5-flash → openrouter/deepseek-v4-flash:free → groq/llama-3.3-70b |
 
 Rationale, per row, lives in `docs/routing-rationale.md` (separate doc — every
 ordering needs a justification anchored to a real provider quirk).
@@ -233,20 +238,28 @@ router_settings:
 
 Every key entered triggers a live `t4p ping <provider>` before continuing:
 
-| Provider    | Validation call                                                       |
-|-------------|-----------------------------------------------------------------------|
-| Gemini      | `GET /v1beta/models?key=...` (lists models, ~50ms)                    |
-| Groq        | `GET /openai/v1/models` with bearer (~30ms)                           |
-| OpenRouter  | `GET /api/v1/auth/key` (returns quota info, ~100ms)                   |
-| Ollama Cloud| `GET /api/tags` with bearer                                           |
-| Cerebras    | `GET /v1/models` with bearer                                          |
+| Provider     | Validation call                                                       |
+|--------------|-----------------------------------------------------------------------|
+| Gemini       | `GET /v1beta/models?key=...` (lists models, ~50ms)                   |
+| Groq         | `GET /openai/v1/models` with bearer (~30ms)                          |
+| OpenRouter   | `GET /api/v1/auth/key` (returns quota info, ~100ms)                  |
+| Ollama Cloud | `GET /api/tags` with bearer                                          |
+| Cerebras     | `GET /v1/models` with bearer                                         |
+| Mistral      | `GET /v1/models` with bearer                                         |
+| NVIDIA NIM   | `GET /v1/models` with bearer                                         |
+| GitHub Models| **POST chat-probe** (`max_tokens:1`) — catalog GET is semi-public    |
+| Z.ai / GLM   | **POST chat-probe** (`max_tokens:1`) — no reliable zero-cost GET      |
 
 On 401/403 → red "invalid key, paste again". On 429 → yellow "key works but
 quota exhausted right now — saving anyway, routing will skip it until it
 recovers". On timeout/network error → ask retry y/n.
 
-We don't burn quota by doing a real chat completion. `GET /models`-style
-endpoints are zero-cost for every provider in the matrix.
+For most providers we don't burn quota: `GET /models`-style endpoints are
+zero-cost. Two exceptions use a minimal POST chat-probe (`max_tokens:1`, one
+"hi" message) because they have no trustworthy zero-cost GET: GitHub Models
+(its catalog endpoint is partly public, so a 2xx wouldn't prove the key works)
+and Z.ai/GLM (no confirmed models-listing endpoint). The probe costs ~1 token,
+which is negligible against any free tier.
 
 ---
 
@@ -287,7 +300,9 @@ then a `.t4p.bak` backup is written next to each touched file.
 
 1. **Use case taxonomy.** Five buckets in screen 1. Embeddings folds into RAG.
 2. **Cerebras and Mistral.** Cerebras is in v1 (the latency edge case differentiator).
-   Mistral is out — free tier too small to be useful.
+   ~~Mistral is out — free tier too small to be useful.~~ **Revised 2026-05-31:**
+   Mistral is back in. La Plateforme's free Experiment tier is now generous
+   (~1B tokens/mo incl. Codestral), so it earns a slot in the coding chains.
 3. **Cline routing.** Default = pick a single model from the chain matched to the
    user's priority. `--with-proxy` flag opts into installing LiteLLM and pointing
    Cline at `http://localhost:4000` for the full fallback chain.
