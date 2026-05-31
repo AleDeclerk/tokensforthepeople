@@ -51,3 +51,7 @@ button:disabled {
 h2.recommended {
   color: #0a7d33;
 }
+.hint {
+  color: #666;
+  font-size: 0.9rem;
+}
