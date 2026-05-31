@@ -1,15 +1,18 @@
 // Package validation runs zero-cost liveness checks against LLM providers.
 //
-// Every provider in providers.All exposes a GET endpoint that returns 2xx
-// when the key is valid, 401/403 when invalid, 429 when over quota. We
-// never call a chat-completion endpoint here — that would burn quota.
+// Most providers expose a GET endpoint that returns 2xx when the key is
+// valid, 401/403 when invalid, 429 when over quota — zero-cost. Two
+// providers (GitHub Models, Z.ai) have no trustworthy zero-cost GET, so for
+// those we POST a 1-token chat-probe instead (see providers.ValidateChatProbe).
 //
 // Result statuses split the world into four buckets that the wizard maps
 // to colored verdicts in the UI: OK, Invalid, QuotaExceeded, NetworkError.
 package validation
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -69,9 +72,9 @@ func Ping(p providers.Provider, key string, timeout time.Duration) (Result, erro
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.Endpoint, nil)
+	req, err := buildRequest(ctx, p)
 	if err != nil {
-		return Result{}, fmt.Errorf("build request: %w", err)
+		return Result{}, err
 	}
 
 	switch p.AuthScheme {
@@ -93,6 +96,34 @@ func Ping(p providers.Provider, key string, timeout time.Duration) (Result, erro
 	defer resp.Body.Close()
 
 	return classify(resp.StatusCode), nil
+}
+
+// buildRequest constructs the validation request for the provider's mode:
+// a zero-cost GET listing, or a minimal POST chat-probe (1 token) for the
+// providers whose key can't be checked cheaply with a GET. Auth headers are
+// attached by the caller, which is shared across both modes.
+func buildRequest(ctx context.Context, p providers.Provider) (*http.Request, error) {
+	if p.Validate == providers.ValidateChatProbe {
+		body, err := json.Marshal(map[string]any{
+			"model":      p.ProbeModel,
+			"messages":   []map[string]string{{"role": "user", "content": "hi"}},
+			"max_tokens": 1,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("marshal probe body: %w", err)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.Endpoint, bytes.NewReader(body))
+		if err != nil {
+			return nil, fmt.Errorf("build request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.Endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	return req, nil
 }
 
 // classify is split out so the test suite can pin every branch without
