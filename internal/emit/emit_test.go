@@ -80,10 +80,12 @@ func TestAiderEmitter_skipsTop_whenNoKey_falsBackToNext(t *testing.T) {
 
 func TestLiteLLMEmitter_emitsFullChainAsSharedModelName(t *testing.T) {
 	chain := mustChain(t, routing.UseCaseCodingAgent, routing.PriorityQuality)
+	// Three providers that are all in the coding/quality chain, so the filtered
+	// LiteLLM config carries exactly three shared-name entries.
 	keys := map[string]string{
 		"GEMINI_API_KEY":     "AIza_x",
+		"MISTRAL_API_KEY":    "mst_x",
 		"OPENROUTER_API_KEY": "sk-or-x",
-		"GROQ_API_KEY":       "gsk_x",
 	}
 	out, err := emit.LiteLLM(chain, keys)
 	if err != nil {
@@ -94,11 +96,11 @@ func TestLiteLLMEmitter_emitsFullChainAsSharedModelName(t *testing.T) {
 		"model_list:",
 		"model_name: smart",
 		"gemini/gemini-2.5-flash",
+		"mistral/codestral-latest",
 		"openrouter/deepseek/deepseek-v4-flash:free",
-		"groq/llama-3.3-70b-versatile",
 		"os.environ/GEMINI_API_KEY",
+		"os.environ/MISTRAL_API_KEY",
 		"os.environ/OPENROUTER_API_KEY",
-		"os.environ/GROQ_API_KEY",
 		"router_settings:",
 		"fallbacks:",
 	} {
