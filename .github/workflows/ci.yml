@@ -25,11 +25,15 @@ jobs:
           go-version: stable
           cache: true
 
+      # The `app` package embeds frontend/dist, which only exists after
+      # `wails build`; on a clean checkout `go list ./...` itself fails on it.
+      # app is vetted, tested, and built by the dedicated app.yml workflow, so
+      # this CLI-focused job targets the cmd/ and internal/ packages directly.
       - name: go vet
-        run: go vet ./...
+        run: go vet ./cmd/... ./internal/...
 
       - name: go test
-        run: go test -race -cover ./...
+        run: go test -race -cover ./cmd/... ./internal/...
 
       - name: go build
         # Confirms the binary compiles end-to-end on every commit.

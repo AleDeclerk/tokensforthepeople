@@ -1,0 +1,46 @@
+name: app
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: ["app/**", "internal/**", ".github/workflows/app.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest] # Phase 1: macOS only; add windows-latest in Phase 2
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build app
+        run: cd app && wails build
+
+      - name: Test
+        run: go test ./... && (cd app/frontend && npm ci && npm test)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: t4p-app-${{ matrix.os }}
+          path: app/build/bin/*
