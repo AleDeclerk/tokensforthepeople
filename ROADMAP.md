@@ -23,6 +23,13 @@ unit tests on `resolveVersion`.
 
 ## Planned
 
+### Desktop app (parallel track)
+
+A double-click Wails app that runs the same setup as `t4p init` in a native
+window, aimed at non-developers. Design:
+[docs/superpowers/specs/2026-05-31-desktop-app-design.md](./docs/superpowers/specs/2026-05-31-desktop-app-design.md).
+Phase 1 ships unsigned; Phase 2 adds notarization and Windows signing.
+
 ### v0.2 — Day-2 trust
 
 v0.1 gets a user set up once. v0.2 is about the second day: re-checking that the

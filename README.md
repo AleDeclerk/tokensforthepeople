@@ -28,6 +28,19 @@ $ t4p init
 Done. Reopen your editor and you're on free LLMs.
 ```
 
+## Download the app (easiest, no terminal)
+
+Not a developer? Download the desktop app, open it, and follow four screens:
+pick what you'll use AI for, paste a free key (the app links you to where to get
+one), choose your editor, and click Write.
+
+Grab `t4p.app` from the [latest release](https://github.com/AleDeclerk/tokensforthepeople/releases/latest).
+
+> macOS note: the app is not yet notarized (Phase 2). The first time you open it,
+> right-click the app and choose Open, then confirm. After that it opens normally.
+
+Prefer the command line? Keep reading.
+
 ## Install
 
 ### Recommended: `go install`
