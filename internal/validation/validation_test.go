@@ -1,6 +1,7 @@
 package validation_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -129,6 +130,62 @@ func TestPing_emptyKey_returnsInvalidWithoutCalling(t *testing.T) {
 	result, _ := validation.Ping(p, "", 2*time.Second)
 	if called {
 		t.Error("Ping must short-circuit on empty key without making a request")
+	}
+	if result.Status != validation.StatusInvalid {
+		t.Errorf("status: got %v, want Invalid", result.Status)
+	}
+}
+
+func TestPing_chatProbe_validKey(t *testing.T) {
+	var gotMethod, gotAuth, gotCT string
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotAuth = r.Header.Get("Authorization")
+		gotCT = r.Header.Get("Content-Type")
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	p := mustFind(t, routing.ProviderGitHub) // ValidateChatProbe, ProbeModel set
+	p.Endpoint = srv.URL
+
+	result, err := validation.Ping(p, "ghp_real", 2*time.Second)
+	if err != nil {
+		t.Fatalf("Ping returned error: %v", err)
+	}
+	if result.Status != validation.StatusOK {
+		t.Errorf("status: got %v, want OK", result.Status)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method: got %q, want POST", gotMethod)
+	}
+	if gotAuth != "Bearer ghp_real" {
+		t.Errorf("auth: got %q, want Bearer ghp_real", gotAuth)
+	}
+	if gotCT != "application/json" {
+		t.Errorf("content-type: got %q, want application/json", gotCT)
+	}
+	if body["model"] != p.ProbeModel {
+		t.Errorf("body model: got %v, want %q", body["model"], p.ProbeModel)
+	}
+	if mt, ok := body["max_tokens"].(float64); !ok || mt != 1 {
+		t.Errorf("body max_tokens: got %v, want 1", body["max_tokens"])
+	}
+}
+
+func TestPing_chatProbe_invalidKey(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	p := mustFind(t, routing.ProviderZAI) // ValidateChatProbe
+	p.Endpoint = srv.URL
+
+	result, err := validation.Ping(p, "bad", 2*time.Second)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Status != validation.StatusInvalid {
 		t.Errorf("status: got %v, want Invalid", result.Status)

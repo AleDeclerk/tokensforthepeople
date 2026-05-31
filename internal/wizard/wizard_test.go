@@ -26,16 +26,18 @@ func TestPrintChain_codingAgent_quality_noKeys(t *testing.T) {
 		"coding-agent",
 		"quality",
 		"gemini/gemini-2.5-flash",
+		"mistral/codestral-latest",
+		"github/openai/gpt-4.1",
+		"nvidia_nim/qwen/qwen3-coder-480b-a35b-instruct",
 		"openrouter/deepseek/deepseek-v4-flash:free",
-		"groq/llama-3.3-70b-versatile",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q. Got:\n%s", want, out)
 		}
 	}
-	// Every step lacks a key so all three should be flagged with "×".
-	if got := strings.Count(out, "×"); got != 3 {
-		t.Errorf("expected 3 missing-key markers, got %d. Output:\n%s", got, out)
+	// Every step lacks a key so all five should be flagged with "×".
+	if got := strings.Count(out, "×"); got != 5 {
+		t.Errorf("expected 5 missing-key markers, got %d. Output:\n%s", got, out)
 	}
 }
 
@@ -59,9 +61,10 @@ func TestPrintChain_withSomeKeys_showsValidatedSection(t *testing.T) {
 	if !strings.Contains(out, "✓ Gemini") || !strings.Contains(out, "✓ Groq") {
 		t.Errorf("expected ✓ markers per provider. Got:\n%s", out)
 	}
-	// OpenRouter step has no key, so exactly one × should appear.
-	if got := strings.Count(out, "×"); got != 1 {
-		t.Errorf("expected 1 missing-key marker (OpenRouter), got %d. Output:\n%s", got, out)
+	// Only Gemini (first step) has a key in the coding/quality chain; the other
+	// four steps (Mistral, GitHub, NVIDIA, OpenRouter) lack keys → four ×.
+	if got := strings.Count(out, "×"); got != 4 {
+		t.Errorf("expected 4 missing-key markers, got %d. Output:\n%s", got, out)
 	}
 }
 

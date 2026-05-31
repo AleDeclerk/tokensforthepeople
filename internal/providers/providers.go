@@ -19,18 +19,38 @@ const (
 	AuthQueryParam
 )
 
+// ValidateMode selects how the validator checks a key.
+type ValidateMode int
+
+const (
+	// ValidateGET issues a zero-cost GET against Endpoint (a /models-style
+	// listing). The default for providers with a trustworthy free GET.
+	ValidateGET ValidateMode = iota
+	// ValidateChatProbe POSTs a 1-token chat completion to Endpoint using
+	// ProbeModel. Used only where a GET can't prove the key works (GitHub
+	// Models' catalog is partly public) or no listing endpoint exists (Z.ai).
+	ValidateChatProbe
+)
+
 // Provider is everything the wizard needs to interact with a single LLM
 // service: how to validate the key, where the user signs up, the env var
 // name the downstream config files reference.
 type Provider struct {
-	ID         routing.Provider
-	Display    string
-	SignupURL  string
-	EnvVar     string
-	Endpoint   string // GET endpoint that returns 2xx for a valid key with zero cost
+	ID        routing.Provider
+	Display   string
+	SignupURL string
+	EnvVar    string
+	// Endpoint is the URL the validator hits. For ValidateGET it's a zero-cost
+	// GET (/models-style); for ValidateChatProbe it's the chat-completions URL.
+	Endpoint   string
 	AuthScheme AuthScheme
 	// QueryParamName is consulted only when AuthScheme==AuthQueryParam.
 	QueryParamName string
+	// Validate selects the validation strategy (GET listing vs POST chat-probe).
+	Validate ValidateMode
+	// ProbeModel is the native model id (no LiteLLM prefix) POSTed during a
+	// chat-probe. Required when Validate==ValidateChatProbe, empty otherwise.
+	ProbeModel string
 }
 
 // All is the canonical, ordered list of providers we support in v1.
@@ -82,6 +102,45 @@ var All = []Provider{
 		EnvVar:     "CEREBRAS_API_KEY",
 		Endpoint:   "https://api.cerebras.ai/v1/models",
 		AuthScheme: AuthBearer,
+	},
+	{
+		ID:         routing.ProviderMistral,
+		Display:    "Mistral",
+		SignupURL:  "https://console.mistral.ai/api-keys",
+		EnvVar:     "MISTRAL_API_KEY",
+		Endpoint:   "https://api.mistral.ai/v1/models",
+		AuthScheme: AuthBearer,
+	},
+	{
+		ID:         routing.ProviderNVIDIA,
+		Display:    "NVIDIA NIM",
+		SignupURL:  "https://build.nvidia.com/",
+		EnvVar:     "NVIDIA_API_KEY",
+		Endpoint:   "https://integrate.api.nvidia.com/v1/models",
+		AuthScheme: AuthBearer,
+	},
+	{
+		ID:        routing.ProviderGitHub,
+		Display:   "GitHub Models",
+		SignupURL: "https://github.com/settings/tokens",
+		EnvVar:    "GITHUB_API_KEY",
+		// Catalog GET is partly public, so a 2xx wouldn't prove the key works;
+		// probe with a 1-token chat completion instead.
+		Endpoint:   "https://models.github.ai/inference/chat/completions",
+		AuthScheme: AuthBearer,
+		Validate:   ValidateChatProbe,
+		ProbeModel: "openai/gpt-4.1-mini",
+	},
+	{
+		ID:        routing.ProviderZAI,
+		Display:   "Z.ai (GLM)",
+		SignupURL: "https://z.ai/manage-apikey/apikey-list",
+		EnvVar:    "ZAI_API_KEY",
+		// No confirmed zero-cost listing endpoint; probe the free GLM Flash.
+		Endpoint:   "https://api.z.ai/api/paas/v4/chat/completions",
+		AuthScheme: AuthBearer,
+		Validate:   ValidateChatProbe,
+		ProbeModel: "glm-4.5-flash",
 	},
 }
 

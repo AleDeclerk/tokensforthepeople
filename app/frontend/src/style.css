@@ -48,3 +48,6 @@ button:disabled {
 .err {
   color: #b00;
 }
+h2.recommended {
+  color: #0a7d33;
+}
