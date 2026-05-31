@@ -38,10 +38,34 @@ func TestEveryRoutingProviderHasMetadata(t *testing.T) {
 		routing.ProviderOpenRouter,
 		routing.ProviderOllamaCloud,
 		routing.ProviderCerebras,
+		routing.ProviderMistral,
+		routing.ProviderNVIDIA,
+		routing.ProviderGitHub,
+		routing.ProviderZAI,
 	}
 	for _, id := range routed {
 		if _, ok := providers.ByID(id); !ok {
 			t.Errorf("routing provider %q has no providers.Provider metadata", id)
+		}
+	}
+}
+
+// Chat-probe validation needs a model id to POST; GET validation must not carry
+// a stray probe model. Pin both invariants so a misconfigured entry is caught
+// before it reaches the live validator.
+func TestAll_validationModeInvariants(t *testing.T) {
+	for _, p := range providers.All {
+		switch p.Validate {
+		case providers.ValidateChatProbe:
+			if p.ProbeModel == "" {
+				t.Errorf("provider %q: ValidateChatProbe but empty ProbeModel", p.ID)
+			}
+		case providers.ValidateGET:
+			if p.ProbeModel != "" {
+				t.Errorf("provider %q: ValidateGET but ProbeModel=%q (should be empty)", p.ID, p.ProbeModel)
+			}
+		default:
+			t.Errorf("provider %q: unknown Validate mode %d", p.ID, p.Validate)
 		}
 	}
 }
