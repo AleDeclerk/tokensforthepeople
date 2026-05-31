@@ -1,4 +1,5 @@
-import { ListProviders, ValidateKey, OpenURL } from "../../wailsjs/go/main/API";
+import { ProvidersForPlan, ValidateKey, OpenURL } from "../../wailsjs/go/main/API";
+import type { main } from "../../wailsjs/go/models";
 type Store = ReturnType<typeof import("../store").createStore>;
 
 export function renderKeys(store: Store, render: () => void): HTMLElement {
@@ -16,46 +17,60 @@ export function renderKeys(store: Store, render: () => void): HTMLElement {
     render();
   };
 
-  ListProviders().then((providers) => {
+  // Build one provider row. DOM-built (not innerHTML): the pasted key value and
+  // provider display must never be interpolated into an HTML string (XSS).
+  function makeRow(p: main.ProviderInfo): HTMLElement {
+    const row = document.createElement("div");
+    row.className = "keyrow";
+    const known = store.state.keys[p.id];
+    const label = document.createElement("label");
+    label.textContent = p.display + (p.easiest ? " · easiest" : "");
+    const input = document.createElement("input");
+    input.type = "password";
+    input.placeholder = "paste key";
+    input.value = known?.value ?? "";
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = known?.status ?? "";
+    const link = document.createElement("button");
+    link.className = "link";
+    link.textContent = "Get a key ↗";
+    link.onclick = () => OpenURL(p.signupURL);
+    row.append(label, input, chip, link);
+    let timer: number | undefined;
+    input.oninput = () => {
+      const val = input.value.trim();
+      clearTimeout(timer);
+      if (!val) {
+        store.setKeyStatus(p.id, p.envVar, "", "");
+        chip.textContent = "";
+        return;
+      }
+      chip.textContent = "validating…";
+      timer = window.setTimeout(async () => {
+        const res = await ValidateKey(p.id, val);
+        store.setKeyStatus(p.id, p.envVar, val, res.status as any);
+        chip.textContent = res.status;
+      }, 600);
+    };
+    return row;
+  }
+
+  function group(title: string, providers: main.ProviderInfo[], cls: string) {
+    if (!providers.length) return;
+    const heading = document.createElement("h2");
+    heading.className = cls;
+    heading.textContent = title;
+    rows.appendChild(heading);
+    for (const p of providers) rows.appendChild(makeRow(p));
+  }
+
+  ProvidersForPlan(store.state.useCase, store.state.priority).then((providers) => {
     rows.innerHTML = "";
-    for (const p of providers) {
-      const row = document.createElement("div");
-      row.className = "keyrow";
-      const known = store.state.keys[p.id];
-      // Build via DOM, not innerHTML: the key value and provider display must
-      // never be interpolated into an HTML string (XSS / breakage on quotes).
-      const label = document.createElement("label");
-      label.textContent = p.display + (p.easiest ? " · easiest" : "");
-      const input = document.createElement("input");
-      input.type = "password";
-      input.placeholder = "paste key";
-      input.value = known?.value ?? "";
-      const chip = document.createElement("span");
-      chip.className = "chip";
-      chip.textContent = known?.status ?? "";
-      const link = document.createElement("button");
-      link.className = "link";
-      link.textContent = "Get a key ↗";
-      link.onclick = () => OpenURL(p.signupURL);
-      row.append(label, input, chip, link);
-      let timer: number | undefined;
-      input.oninput = () => {
-        const val = input.value.trim();
-        clearTimeout(timer);
-        if (!val) {
-          store.setKeyStatus(p.id, p.envVar, "", "");
-          chip.textContent = "";
-          return;
-        }
-        chip.textContent = "validating…";
-        timer = window.setTimeout(async () => {
-          const res = await ValidateKey(p.id, val);
-          store.setKeyStatus(p.id, p.envVar, val, res.status as any);
-          chip.textContent = res.status;
-        }, 600);
-      };
-      rows.appendChild(row);
-    }
+    const recommended = providers.filter((p) => p.recommended);
+    const others = providers.filter((p) => !p.recommended);
+    group("Recommended for your setup", recommended, "recommended");
+    group("Other providers (optional — improves fallback)", others, "");
   });
   return el;
 }
