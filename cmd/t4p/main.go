@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/AleDeclerk/tokensforthepeople/internal/emit"
-	"github.com/AleDeclerk/tokensforthepeople/internal/keystore"
+	"github.com/AleDeclerk/tokensforthepeople/internal/plan"
 	"github.com/AleDeclerk/tokensforthepeople/internal/providers"
 	"github.com/AleDeclerk/tokensforthepeople/internal/routing"
 	"github.com/AleDeclerk/tokensforthepeople/internal/validation"
@@ -123,66 +123,39 @@ func runInit(args []string) int {
 // writeOutputs persists keys.env and every selected target's config.
 // Returns the desired process exit code.
 func writeOutputs(ans wizard.Answers) int {
-	// Keys first — every emitter references env vars sourced from keys.env.
-	if len(ans.Keys) == 0 {
-		fmt.Fprintln(os.Stderr, "--write requested but no keys collected; nothing to write.")
-		return 1
-	}
-	keyPath, err := keystore.DefaultPath()
+	rep, err := plan.Apply(plan.Input{
+		UseCase:  ans.UseCase,
+		Priority: ans.Priority,
+		Keys:     ans.Keys,
+		Targets:  ans.Targets,
+	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "init: resolve config dir:", err)
+		fmt.Fprintln(os.Stderr, "init:", err)
 		return 1
 	}
-	if err := keystore.Write(keyPath, ans.Keys); err != nil {
-		fmt.Fprintln(os.Stderr, "init: write keys:", err)
-		return 1
-	}
-	fmt.Fprintf(os.Stdout, "\n✓ wrote %s (chmod 600)\n", keyPath)
-
-	if len(ans.Targets) == 0 {
+	fmt.Fprintf(os.Stdout, "\n✓ wrote %s (chmod 600)\n", rep.KeysPath)
+	if len(rep.Targets) == 0 {
 		fmt.Fprintln(os.Stdout, "  no targets selected — keys.env is enough for direnv / manual use")
 		return 0
 	}
-
-	chain, err := routing.BuildChain(ans.UseCase, ans.Priority)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "init: build chain:", err)
-		return 1
-	}
-
 	failed := 0
-	for _, target := range ans.Targets {
-		path, err := emit.DefaultPath(target)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "  ✗ %s: %v\n", target, err)
-			failed++
-			continue
-		}
-		content, err := emit.Render(target, chain, ans.Keys)
-		if err != nil {
-			// Most likely cause: no validated key for any step in the chain
-			// (e.g. user picked target=aider but skipped every key prompt).
-			fmt.Fprintf(os.Stderr, "  ✗ %s: %v — skipping\n", target, err)
-			failed++
-			continue
-		}
-		report, err := emit.WriteAtomic(path, content)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "  ✗ %s: %v\n", target, err)
+	for _, tr := range rep.Targets {
+		if !tr.OK {
+			fmt.Fprintf(os.Stderr, "  ✗ %s: %s\n", tr.Target, tr.Err)
 			failed++
 			continue
 		}
 		verb := "updated"
-		if report.Created {
+		if tr.Created {
 			verb = "created"
 		}
-		fmt.Fprintf(os.Stdout, "  ✓ %s %s (%d bytes)\n", verb, report.Path, report.Bytes)
-		if report.Backup != "" {
-			fmt.Fprintf(os.Stdout, "    backed up to %s\n", report.Backup)
+		fmt.Fprintf(os.Stdout, "  ✓ %s %s\n", verb, tr.Path)
+		if tr.Backup != "" {
+			fmt.Fprintf(os.Stdout, "    backed up to %s\n", tr.Backup)
 		}
 	}
 	if failed > 0 {
-		fmt.Fprintf(os.Stderr, "\n%d of %d targets failed.\n", failed, len(ans.Targets))
+		fmt.Fprintf(os.Stderr, "\n%d of %d targets failed.\n", failed, len(rep.Targets))
 		return 1
 	}
 	return 0
