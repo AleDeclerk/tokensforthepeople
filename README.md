@@ -10,7 +10,8 @@
 A small Go CLI that interviews you for ~60 seconds and leaves you with a
 working multi-provider LLM setup wired into your editor (Cline, Continue.dev,
 Aider) and/or a local LiteLLM proxy, all using free tiers of Gemini,
-OpenRouter, Groq, Ollama Cloud, and Cerebras.
+OpenRouter, Groq, Ollama Cloud, Cerebras, Mistral, NVIDIA NIM, GitHub Models,
+and Z.ai/GLM.
 
 ```
 $ t4p init
@@ -140,6 +141,12 @@ The wizard's routing decisions are pinned to a curated table of free-tier
 quotas and capabilities for each provider. See
 [`docs/wizard.md`](./docs/wizard.md#routing-decision-matrix).
 
+Nine providers are supported: Gemini, OpenRouter, Groq, Ollama Cloud, Cerebras,
+Mistral, NVIDIA NIM, GitHub Models, and Z.ai/GLM. A couple of signup quirks:
+GitHub Models uses a fine-grained Personal Access Token (scope `models:read`),
+and Z.ai/GLM signs up with email only. The keys screen highlights the providers
+your chosen use case and priority actually route to.
+
 A scheduled health-checker that updates the matrix automatically is on the
 [roadmap](./ROADMAP.md).
 
@@ -149,7 +156,7 @@ A scheduled health-checker that updates the matrix automatically is on the
 cmd/t4p/                Main package, CLI dispatcher
 internal/routing/       Decision matrix (use case + priority -> chain)
 internal/providers/     Static metadata per provider (endpoint, env var, ...)
-internal/validation/    GET /models live key validation
+internal/validation/    Live key validation (GET /models, or POST chat-probe)
 internal/keystore/      Atomic dotenv write (chmod 600 + backups)
 internal/emit/          Per-target config emitters (pure functions)
 internal/tools/         Detect installed tools (Cline/Continue/Aider/LiteLLM)
